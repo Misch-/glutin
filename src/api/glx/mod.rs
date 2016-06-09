@@ -30,17 +30,22 @@ pub struct Context {
 }
 
 // TODO: remove me
-fn with_c_str<F, T>(s: &str, f: F) -> T where F: FnOnce(*const libc::c_char) -> T {
+fn with_c_str<F, T>(s: &str, f: F) -> T
+    where F: FnOnce(*const libc::c_char) -> T
+{
     use std::ffi::CString;
     let c_str = CString::new(s.as_bytes().to_vec()).unwrap();
     f(c_str.as_ptr())
 }
 
 impl Context {
-    pub fn new<'a>(glx: ffi::glx::Glx, xlib: &ffi::Xlib, pf_reqs: &PixelFormatRequirements,
-                   opengl: &'a GlAttributes<&'a Context>, display: *mut ffi::Display,
-                   screen_id: libc::c_int) -> Result<ContextPrototype<'a>, CreationError>
-    {
+    pub fn new<'a>(glx: ffi::glx::Glx,
+                   xlib: &ffi::Xlib,
+                   pf_reqs: &PixelFormatRequirements,
+                   opengl: &'a GlAttributes<&'a Context>,
+                   display: *mut ffi::Display,
+                   screen_id: libc::c_int)
+                   -> Result<ContextPrototype<'a>, CreationError> {
         // This is completely ridiculous, but VirtualBox's OpenGL driver needs some call handled by
         // *it* (i.e. not Mesa) to occur before anything else can happen. That is because
         // VirtualBox's OpenGL driver is going to apply binary patches to Mesa in the DLL
@@ -63,7 +68,7 @@ impl Context {
         // finding the pixel format we want
         let (fb_config, pixel_format) = unsafe {
             try!(choose_fbconfig(&glx, &extensions, xlib, display, screen_id, pf_reqs)
-                                          .map_err(|_| CreationError::NoAvailablePixelFormat))
+                .map_err(|_| CreationError::NoAvailablePixelFormat))
         };
 
         // getting the visual infos
@@ -107,15 +112,15 @@ impl GlContext for Context {
     fn get_proc_address(&self, addr: &str) -> *const () {
         let addr = CString::new(addr.as_bytes()).unwrap();
         let addr = addr.as_ptr();
-        unsafe {
-            self.glx.GetProcAddress(addr as *const _) as *const _
-        }
+        unsafe { self.glx.GetProcAddress(addr as *const _) as *const _ }
     }
 
     #[inline]
     fn swap_buffers(&self) -> Result<(), ContextError> {
         // TODO: glutin needs some internal changes for proper error recovery
-        unsafe { self.glx.SwapBuffers(self.display as *mut _, self.window); }
+        unsafe {
+            self.glx.SwapBuffers(self.display as *mut _, self.window);
+        }
         Ok(())
     }
 
@@ -164,53 +169,84 @@ impl<'a> ContextPrototype<'a> {
     pub fn finish(self, window: ffi::Window) -> Result<Context, CreationError> {
         let share = match self.opengl.sharing {
             Some(ctxt) => ctxt.context,
-            None => ptr::null()
+            None => ptr::null(),
         };
 
         // loading the extra GLX functions
         let extra_functions = ffi::glx_extra::Glx::load_with(|addr| {
-            with_c_str(addr, |s| {
-                unsafe { self.glx.GetProcAddress(s as *const u8) as *const _ }
-            })
+            with_c_str(addr,
+                       |s| { unsafe { self.glx.GetProcAddress(s as *const u8) as *const _ } })
         });
 
         // creating GL context
         let context = match self.opengl.version {
             GlRequest::Latest => {
-                if let Ok(ctxt) = create_context(&self.glx, &extra_functions, &self.extensions, (3, 2),
-                                                 self.opengl.profile, self.opengl.debug,
-                                                 self.opengl.robustness, share,
-                                                 self.display, self.fb_config, &self.visual_infos)
-                {
+                if let Ok(ctxt) = create_context(&self.glx,
+                                                 &extra_functions,
+                                                 &self.extensions,
+                                                 (3, 2),
+                                                 self.opengl.profile,
+                                                 self.opengl.debug,
+                                                 self.opengl.robustness,
+                                                 share,
+                                                 self.display,
+                                                 self.fb_config,
+                                                 &self.visual_infos) {
                     ctxt
-                } else if let Ok(ctxt) = create_context(&self.glx, &extra_functions, &self.extensions,
-                                                        (3, 1), self.opengl.profile,
-                                                        self.opengl.debug,
-                                                        self.opengl.robustness, share, self.display,
-                                                        self.fb_config, &self.visual_infos)
-                {
+                } else if let Ok(ctxt) = create_context(&self.glx,
+                                                 &extra_functions,
+                                                 &self.extensions,
+                                                 (3, 1),
+                                                 self.opengl.profile,
+                                                 self.opengl.debug,
+                                                 self.opengl.robustness,
+                                                 share,
+                                                 self.display,
+                                                 self.fb_config,
+                                                 &self.visual_infos) {
                     ctxt
 
                 } else {
-                    try!(create_context(&self.glx, &extra_functions, &self.extensions, (1, 0),
-                                        self.opengl.profile, self.opengl.debug,
+                    try!(create_context(&self.glx,
+                                        &extra_functions,
+                                        &self.extensions,
+                                        (1, 0),
+                                        self.opengl.profile,
+                                        self.opengl.debug,
                                         self.opengl.robustness,
-                                        share, self.display, self.fb_config, &self.visual_infos))
+                                        share,
+                                        self.display,
+                                        self.fb_config,
+                                        &self.visual_infos))
                 }
-            },
+            }
             GlRequest::Specific(Api::OpenGl, (major, minor)) => {
-                try!(create_context(&self.glx, &extra_functions, &self.extensions, (major, minor),
-                                    self.opengl.profile, self.opengl.debug,
-                                    self.opengl.robustness, share, self.display, self.fb_config,
+                try!(create_context(&self.glx,
+                                    &extra_functions,
+                                    &self.extensions,
+                                    (major, minor),
+                                    self.opengl.profile,
+                                    self.opengl.debug,
+                                    self.opengl.robustness,
+                                    share,
+                                    self.display,
+                                    self.fb_config,
                                     &self.visual_infos))
-            },
+            }
             GlRequest::Specific(_, _) => panic!("Only OpenGL is supported"),
             GlRequest::GlThenGles { opengl_version: (major, minor), .. } => {
-                try!(create_context(&self.glx, &extra_functions, &self.extensions, (major, minor),
-                                    self.opengl.profile, self.opengl.debug,
-                                    self.opengl.robustness, share, self.display, self.fb_config,
+                try!(create_context(&self.glx,
+                                    &extra_functions,
+                                    &self.extensions,
+                                    (major, minor),
+                                    self.opengl.profile,
+                                    self.opengl.debug,
+                                    self.opengl.robustness,
+                                    share,
+                                    self.display,
+                                    self.fb_config,
                                     &self.visual_infos))
-            },
+            }
         };
 
         // vsync
@@ -268,13 +304,18 @@ impl<'a> ContextPrototype<'a> {
     }
 }
 
-fn create_context(glx: &ffi::glx::Glx, extra_functions: &ffi::glx_extra::Glx, extensions: &str,
-                  version: (u8, u8), profile: Option<GlProfile>, debug: bool,
-                  robustness: Robustness, share: ffi::GLXContext, display: *mut ffi::Display,
+fn create_context(glx: &ffi::glx::Glx,
+                  extra_functions: &ffi::glx_extra::Glx,
+                  extensions: &str,
+                  version: (u8, u8),
+                  profile: Option<GlProfile>,
+                  debug: bool,
+                  robustness: Robustness,
+                  share: ffi::GLXContext,
+                  display: *mut ffi::Display,
                   fb_config: ffi::glx::types::GLXFBConfig,
                   visual_infos: &ffi::XVisualInfo)
-                  -> Result<ffi::GLXContext, CreationError>
-{
+                  -> Result<ffi::GLXContext, CreationError> {
     unsafe {
         let context = if extensions.split(' ').find(|&i| i == "GLX_ARB_create_context").is_some() {
             let mut attributes = Vec::with_capacity(9);
@@ -286,10 +327,10 @@ fn create_context(glx: &ffi::glx::Glx, extra_functions: &ffi::glx_extra::Glx, ex
 
             if let Some(profile) = profile {
                 let flag = match profile {
-                    GlProfile::Compatibility =>
-                        ffi::glx_extra::CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-                    GlProfile::Core =>
-                        ffi::glx_extra::CONTEXT_CORE_PROFILE_BIT_ARB,
+                    GlProfile::Compatibility => {
+                        ffi::glx_extra::CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB
+                    }
+                    GlProfile::Core => ffi::glx_extra::CONTEXT_CORE_PROFILE_BIT_ARB,
                 };
 
                 attributes.push(ffi::glx_extra::CONTEXT_PROFILE_MASK_ARB as c_int);
@@ -300,27 +341,32 @@ fn create_context(glx: &ffi::glx::Glx, extra_functions: &ffi::glx_extra::Glx, ex
                 let mut flags = 0;
 
                 // robustness
-                if extensions.split(' ').find(|&i| i == "GLX_ARB_create_context_robustness").is_some() {
+                if extensions.split(' ')
+                    .find(|&i| i == "GLX_ARB_create_context_robustness")
+                    .is_some() {
                     match robustness {
-                        Robustness::RobustNoResetNotification | Robustness::TryRobustNoResetNotification => {
+                        Robustness::RobustNoResetNotification |
+                        Robustness::TryRobustNoResetNotification => {
                             attributes.push(ffi::glx_extra::CONTEXT_RESET_NOTIFICATION_STRATEGY_ARB as c_int);
                             attributes.push(ffi::glx_extra::NO_RESET_NOTIFICATION_ARB as c_int);
                             flags = flags | ffi::glx_extra::CONTEXT_ROBUST_ACCESS_BIT_ARB as c_int;
-                        },
-                        Robustness::RobustLoseContextOnReset | Robustness::TryRobustLoseContextOnReset => {
+                        }
+                        Robustness::RobustLoseContextOnReset |
+                        Robustness::TryRobustLoseContextOnReset => {
                             attributes.push(ffi::glx_extra::CONTEXT_RESET_NOTIFICATION_STRATEGY_ARB as c_int);
                             attributes.push(ffi::glx_extra::LOSE_CONTEXT_ON_RESET_ARB as c_int);
                             flags = flags | ffi::glx_extra::CONTEXT_ROBUST_ACCESS_BIT_ARB as c_int;
-                        },
+                        }
                         Robustness::NotRobust => (),
                         Robustness::NoError => (),
                     }
                 } else {
                     match robustness {
-                        Robustness::RobustNoResetNotification | Robustness::RobustLoseContextOnReset => {
+                        Robustness::RobustNoResetNotification |
+                        Robustness::RobustLoseContextOnReset => {
                             return Err(CreationError::RobustnessNotSupported);
-                        },
-                        _ => ()
+                        }
+                        _ => (),
                     }
                 }
 
@@ -336,7 +382,10 @@ fn create_context(glx: &ffi::glx::Glx, extra_functions: &ffi::glx_extra::Glx, ex
 
             attributes.push(0);
 
-            extra_functions.CreateContextAttribsARB(display as *mut _, fb_config, share, 1,
+            extra_functions.CreateContextAttribsARB(display as *mut _,
+                                                    fb_config,
+                                                    share,
+                                                    1,
                                                     attributes.as_ptr())
 
         } else {
@@ -354,11 +403,13 @@ fn create_context(glx: &ffi::glx::Glx, extra_functions: &ffi::glx_extra::Glx, ex
 }
 
 /// Enumerates all available FBConfigs
-unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xlib,
-                          display: *mut ffi::Display, screen_id: libc::c_int,
+unsafe fn choose_fbconfig(glx: &ffi::glx::Glx,
+                          extensions: &str,
+                          xlib: &ffi::Xlib,
+                          display: *mut ffi::Display,
+                          screen_id: libc::c_int,
                           reqs: &PixelFormatRequirements)
-                          -> Result<(ffi::glx::types::GLXFBConfig, PixelFormat), ()>
-{
+                          -> Result<(ffi::glx::types::GLXFBConfig, PixelFormat), ()> {
     let descriptor = {
         let mut out: Vec<c_int> = Vec::with_capacity(37);
 
@@ -386,9 +437,19 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xli
             out.push(ffi::glx::RED_SIZE as c_int);
             out.push((color / 3) as c_int);
             out.push(ffi::glx::GREEN_SIZE as c_int);
-            out.push((color / 3 + if color % 3 != 0 { 1 } else { 0 }) as c_int);
+            out.push((color / 3 +
+                      if color % 3 != 0 {
+                1
+            } else {
+                0
+            }) as c_int);
             out.push(ffi::glx::BLUE_SIZE as c_int);
-            out.push((color / 3 + if color % 3 == 2 { 1 } else { 0 }) as c_int);
+            out.push((color / 3 +
+                      if color % 3 == 2 {
+                1
+            } else {
+                0
+            }) as c_int);
         }
 
         if let Some(alpha) = reqs.alpha_bits {
@@ -408,12 +469,20 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xli
 
         let double_buffer = reqs.double_buffer.unwrap_or(true);
         out.push(ffi::glx::DOUBLEBUFFER as c_int);
-        out.push(if double_buffer { 1 } else { 0 });
+        out.push(if double_buffer {
+            1
+        } else {
+            0
+        });
 
         if let Some(multisampling) = reqs.multisampling {
             if extensions.split(' ').find(|&i| i == "GLX_ARB_multisample").is_some() {
                 out.push(ffi::glx_extra::SAMPLE_BUFFERS_ARB as c_int);
-                out.push(if multisampling == 0 { 0 } else { 1 });
+                out.push(if multisampling == 0 {
+                    0
+                } else {
+                    1
+                });
                 out.push(ffi::glx_extra::SAMPLES_ARB as c_int);
                 out.push(multisampling as c_int);
             } else {
@@ -422,13 +491,20 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xli
         }
 
         out.push(ffi::glx::STEREO as c_int);
-        out.push(if reqs.stereoscopy { 1 } else { 0 });
+        out.push(if reqs.stereoscopy {
+            1
+        } else {
+            0
+        });
 
         if reqs.srgb {
             if extensions.split(' ').find(|&i| i == "GLX_ARB_framebuffer_sRGB").is_some() {
                 out.push(ffi::glx_extra::FRAMEBUFFER_SRGB_CAPABLE_ARB as c_int);
                 out.push(1);
             } else if extensions.split(' ').find(|&i| i == "GLX_EXT_framebuffer_sRGB").is_some() {
+                out.push(ffi::glx_extra::FRAMEBUFFER_SRGB_CAPABLE_EXT as c_int);
+                out.push(1);
+            } else if extensions.split(' ').find(|&i| i == "GLX_EXT_framebuffer_sRGB,").is_some() {
                 out.push(ffi::glx_extra::FRAMEBUFFER_SRGB_CAPABLE_EXT as c_int);
                 out.push(1);
             } else {
@@ -443,7 +519,7 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xli
                     out.push(ffi::glx_extra::CONTEXT_RELEASE_BEHAVIOR_ARB as c_int);
                     out.push(ffi::glx_extra::CONTEXT_RELEASE_BEHAVIOR_NONE_ARB as c_int);
                 }
-            },
+            }
         }
 
         out.push(ffi::glx::CONFIG_CAVEAT as c_int);
@@ -456,10 +532,16 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xli
     // calling glXChooseFBConfig
     let fb_config = {
         let mut num_configs = 1;
-        let result = glx.ChooseFBConfig(display as *mut _, screen_id, descriptor.as_ptr(),
+        let result = glx.ChooseFBConfig(display as *mut _,
+                                        screen_id,
+                                        descriptor.as_ptr(),
                                         &mut num_configs);
-        if result.is_null() { return Err(()); }
-        if num_configs == 0 { return Err(()); }
+        if result.is_null() {
+            return Err(());
+        }
+        if num_configs == 0 {
+            return Err(());
+        }
         let val = *result;
         (xlib.XFree)(result as *mut _);
         val
@@ -474,7 +556,7 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx, extensions: &str, xlib: &ffi::Xli
 
     let pf_desc = PixelFormat {
         hardware_accelerated: get_attrib(ffi::glx::CONFIG_CAVEAT as c_int) !=
-                                                            ffi::glx::SLOW_CONFIG as c_int,
+                              ffi::glx::SLOW_CONFIG as c_int,
         color_bits: get_attrib(ffi::glx::RED_SIZE as c_int) as u8 +
                     get_attrib(ffi::glx::GREEN_SIZE as c_int) as u8 +
                     get_attrib(ffi::glx::BLUE_SIZE as c_int) as u8,
