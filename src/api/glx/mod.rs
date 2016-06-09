@@ -508,7 +508,9 @@ unsafe fn choose_fbconfig(glx: &ffi::glx::Glx,
                 out.push(ffi::glx_extra::FRAMEBUFFER_SRGB_CAPABLE_EXT as c_int);
                 out.push(1);
             } else {
-                return Err(());
+                // return Err(());
+                out.push(ffi::glx_extra::FRAMEBUFFER_SRGB_CAPABLE_EXT as c_int);
+                out.push(1);
             }
         }
 
